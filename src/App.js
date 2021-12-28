@@ -1,11 +1,14 @@
 import { Router } from "@reach/router";
+import "./App.css"
 
 import Posts from './components/posts'
-import Post from './components/post'
+import Post from './components/PostCard'
 
 function App() {
   return (
-    Posts()
+    <Router>
+      <Posts path="/" />
+    </Router>
   );
 }
 
