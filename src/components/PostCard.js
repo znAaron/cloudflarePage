@@ -65,8 +65,8 @@ const PostCard = ({ post }) => {
     //only fetch when it is visible to reduce the load on the backend
     if (expanded && !id.includes("loading")) {
       const getPosts = async () => {
-        const likeURL = "http://127.0.0.1:8787/posts/like?id=" + id;
-        const commentURL = "http://127.0.0.1:8787/posts/comments?id=" + id;
+        const likeURL = "https://socialmedia.znaaron.com/posts/like?id=" + id;
+        const commentURL = "https://socialmedia.znaaron.com/posts/comments?id=" + id;
 
         const likeResp = await fetch(
           likeURL, { mode: 'cors' }
@@ -115,7 +115,7 @@ const PostCard = ({ post }) => {
 
   const postComment = async (data) => {
     const response = await fetch(
-      "http://127.0.0.1:8787/posts/comments",
+      "https://socialmedia.znaaron.com/posts/comments",
       {
         mode: 'cors',
         method: 'POST',
@@ -159,7 +159,7 @@ const PostCard = ({ post }) => {
   };
 
   const likePost = async () => {
-    const likeURL = "http://127.0.0.1:8787/posts/like?id=" + id
+    const likeURL = "https://socialmedia.znaaron.com/posts/like?id=" + id
     fetch(likeURL, { mode: 'cors', method: 'POST' })
     setLikeStyle({ fill: "red" })
     setLike(like + 1)

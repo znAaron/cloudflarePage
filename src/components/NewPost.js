@@ -60,7 +60,7 @@ export default function NewPost({ onNewPost }) {
 
         //get the Direct Creator Upload link
         const resp = await fetch(
-            "http://127.0.0.1:8787/posts/image",
+            "https://socialmedia.znaaron.com/posts/image",
             { mode: 'cors', method: 'POST' }
         )
         const uploadURL = await resp.text()
@@ -80,7 +80,7 @@ export default function NewPost({ onNewPost }) {
 
     const postData = async (data) => {
         const response = await fetch(
-            "http://127.0.0.1:8787/posts",
+            "https://socialmedia.znaaron.com/posts",
             {
                 mode: 'cors',
                 method: 'POST',

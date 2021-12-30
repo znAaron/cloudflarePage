@@ -3,8 +3,6 @@ import React, { useEffect, useState } from "react";
 import NewPost from './NewPost'
 import PostCard from './PostCard'
 
-
-
 const Posts = () => {
   const [posts, setPosts] = useState([{id:"loading1"}, {id:"loading2"}, {id:"loading3"}]);
   const [newPost, setNewPost] = useState(false);
@@ -12,8 +10,7 @@ const Posts = () => {
   useEffect(() => {
     const getPosts = async () => {
       const resp = await fetch(
-        "http://127.0.0.1:8787/posts",
-        {mode: 'cors'}
+        "https://socialmedia.znaaron.com/posts"
       );
       let postsResp = await resp.json();
       postsResp.sort(function (a, b) {
