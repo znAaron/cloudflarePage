@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useReducer } from "react";
 
 import { styled } from '@mui/material/styles';
 import Card from '@mui/material/Card';
@@ -24,10 +24,149 @@ import Divider from '@mui/material/Divider';
 
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
+import ReactQuill from "react-quill";
+import 'react-quill/dist/quill.bubble.css'
+import Skeleton from '@mui/material/Skeleton';
 
 const PostCard = ({ post }) => {
-  const [expanded, setExpanded] = React.useState(false);
-  const [commentExpanded, setCommentExpanded] = React.useState(false);
+  const id = post.id
+  const [like, setLike] = useState(0);
+  const [likeStyle, setLikeStyle] = useState({});
+  const [comments, setComments] = useState([]);
+  const [statusChange, setStatusChange] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [commentExpanded, setCommentExpanded] = useState(false);
+  const [formInput, setFormInput] = useReducer(
+    (state, newState) => ({ ...state, ...newState }),
+    {
+      username: "",
+      content: ""
+    }
+  );
+
+  console.log(typeof(id))
+
+  const Cover = () => {
+    if (post.img === "") {
+      return ""
+    }
+    else {
+      console.log(post.image)
+      return (
+        <CardMedia
+          component="img"
+          image={post.img}
+        />
+      )
+    }
+  }
+
+  useEffect(() => {
+    //only fetch when it is visible to reduce the load on the backend
+    if (expanded && !id.includes("loading")) {
+      const getPosts = async () => {
+        const likeURL = "http://127.0.0.1:8787/posts/like?id=" + id;
+        const commentURL = "http://127.0.0.1:8787/posts/comments?id=" + id;
+
+        const likeResp = await fetch(
+          likeURL, { mode: 'cors' }
+        );
+        const likeNum = await likeResp.text();
+        setLike(parseInt(likeNum));
+
+        const commentResp = await fetch(
+          commentURL, { mode: 'cors' }
+        );
+        let postComments = await commentResp.json();
+        postComments.sort(function (a, b) {
+          return b.time - a.time;
+        });
+        setComments(postComments);
+      };
+
+      getPosts();
+    }
+  }, [statusChange, expanded]);
+
+  if (id.includes("loading")) {
+    return (
+      <Card sx={{ maxWidth: 345 }} className="post-card">
+        <CardHeader
+          avatar={<Skeleton animation="wave" variant="circular" width={40} height={40} />}
+          title={
+            <Skeleton
+              animation="wave"
+              height={10}
+              width="80%"
+              style={{ marginBottom: 6 }}
+            />}
+          subheader={<Skeleton animation="wave" height={10} width="40%" />}
+        />
+        <Skeleton sx={{ height: 300 }} animation="wave" variant="rectangular" />
+        <CardContent>
+          <React.Fragment>
+            <Skeleton animation="wave" height={10} style={{ marginBottom: 6 }} />
+            <Skeleton animation="wave" height={10} width="80%" />
+          </React.Fragment>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const postComment = async (data) => {
+    const response = await fetch(
+      "http://127.0.0.1:8787/posts/comments",
+      {
+        mode: 'cors',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      }
+    )
+    return response
+  }
+
+  const submitComment = async () => {
+    /* delay the fetch to the next comment to remove the dummyComment
+      which would cause duplicated key if there are more than one dummy */
+    setStatusChange(!statusChange)
+
+    const comment = {
+      ...formInput,
+      postId: id,
+    }
+
+    postComment(comment).then(result => {
+      if (result.status === 200) {
+        setCommentExpanded(false)
+        alert("success")
+
+        /* fake front end change because the backend may not have finished the storage
+        that will cause the new fetch to get the same comments data */
+        const dummyComment = {
+          ...comment,
+          id: "dummy",
+          time: new Date().getTime()
+        }
+        setComments([dummyComment, ...comments])
+        /* not fecthing because it can cause inconsistent view
+          if the storage is not finished */
+        //setStatusChange(!statusChange)
+      }
+    })
+  };
+
+  const likePost = async () => {
+    const likeURL = "http://127.0.0.1:8787/posts/like?id=" + id
+    fetch(likeURL, { mode: 'cors', method: 'POST' })
+    setLikeStyle({ fill: "red" })
+    setLike(like + 1)
+    /* not fecthing because it can cause inconsistent view
+      if the storage is not finished */
+    //setStatusChange(!statusChange)
+  }
 
   const ExpandMore = styled((props) => {
     const { expand, ...other } = props;
@@ -51,27 +190,21 @@ const PostCard = ({ post }) => {
       setCommentExpanded(true);
       setExpanded(true);
     }
-
   };
 
-  const messages = [
-    {
-      primary: 'Brunch this week?',
-      secondary: "I'll be in the neighbourhood this week. Let's grab a bite to eat",
-      person: '/static/images/avatar/5.jpg',
-    },
-    {
-      primary: 'Birthday Gift',
-      secondary: `Do you have a suggestion for a good present for John on his work
-        anniversary. I am really confused & would love your thoughts on it.`,
-      person: '/static/images/avatar/1.jpg',
-    },
-    {
-      primary: 'Recipe to try',
-      secondary: 'I am try out this new BBQ recipe, I think this might be amazing',
-      person: '/static/images/avatar/2.jpg',
-    }
-  ];
+  const handleInput = evt => {
+    const name = evt.target.name;
+    const newValue = evt.target.value;
+    setFormInput({ [name]: newValue });
+  };
+
+  const date = new Date(post.time);
+  const time = date.getDate() +
+    "/" + (date.getMonth() + 1) +
+    "/" + date.getFullYear() +
+    " " + date.getHours() +
+    ":" + date.getMinutes() +
+    ":" + date.getSeconds();
 
   return (
     <Card sx={{ maxWidth: 345 }} key={post.id} className="post-card">
@@ -89,88 +222,74 @@ const PostCard = ({ post }) => {
         title={post.title}
         subheader={post.username}
       />
-      {/* <CardMedia
-            component="img"
-            height="194"
-            image="/static/images/cards/paella.jpg"
-            alt="Paella dish"
-          /> */}
+      <Cover />
       <CardContent>
         <Typography variant="body2" color="text.secondary">
-          {post.content}
+          {post.description}
         </Typography>
       </CardContent>
-      
+
       <Collapse in={expanded} timeout="auto" unmountOnExit>
         <CardContent>
-          <Typography paragraph>Method:</Typography>
-          <Typography paragraph>
-            Heat 1/2 cup of the broth in a pot until simmering, add saffron and set
-            aside for 10 minutes.
+          {/*rich text content*/}
+          <Divider style={{ marginTop: "0em" }}></Divider>
+          <ReactQuill
+            value={post.content}
+            readOnly={true}
+            theme={"bubble"} />
+          {/*likes and time*/}
+          <Typography variant="body2" color="text.secondary" style={{ marginTop: "1em", textAlign: "right" }}>
+            likes:{like}  time:{time}
           </Typography>
-          <Typography paragraph>
-            Heat oil in a (14- to 16-inch) paella pan or a large, deep skillet over
-            medium-high heat. Add chicken, shrimp and chorizo, and cook, stirring
-            occasionally until lightly browned, 6 to 8 minutes. Transfer shrimp to a
-            large plate and set aside, leaving chicken and chorizo in the pan. Add
-            pimentón, bay leaves, garlic, tomatoes, onion, salt and pepper, and cook,
-            stirring often until thickened and fragrant, about 10 minutes. Add
-            saffron broth and remaining 4 1/2 cups chicken broth; bring to a boil.
-          </Typography>
-          <Typography paragraph>
-            Add rice and stir very gently to distribute. Top with artichokes and
-            peppers, and cook without stirring, until most of the liquid is absorbed,
-            15 to 18 minutes. Reduce heat to medium-low, add reserved shrimp and
-            mussels, tucking them down into the rice, and cook again without
-            stirring, until mussels have opened and rice is just tender, 5 to 7
-            minutes more. (Discard any mussels that don’t open.)
-          </Typography>
-          <Typography>
-            Set aside off of the heat to let rest for 10 minutes, and then serve.
-          </Typography>
-
-          <Divider style={{ marginTop: "1.5em" }}>Comments</Divider>
-
+          <Divider >Comments</Divider>
+          {/*comments*/}
           <List style={{ padding: "0em" }}>
-            {messages.map(({ primary, secondary, person }, index) => (
-              <ListItem button key={index + person}>
+            {comments.map(({ id, username, content }) => (
+              <ListItem button key={id}>
                 <ListItemAvatar>
-                  <Avatar alt="Profile Picture" src={person} />
+                  <Avatar >
+                    {username.charAt(0).toUpperCase()}
+                  </Avatar>
                 </ListItemAvatar>
-                <ListItemText primary={primary} secondary={secondary} />
+                <ListItemText primary={content} secondary={username} />
               </ListItem>
             ))}
           </List>
-
-          
+          {/*create new comment*/}
           <Collapse in={commentExpanded} timeout="auto" unmountOnExit>
             <Divider style={{ marginTop: "0em" }}>New Comment</Divider>
             <TextField id="filled-multiline-flexible" label="Comment" multiline rows={3} variant="filled"
+              name="content" onChange={handleInput}
               style={{ display: "flex", marginTop: "0.5em", width: "calc(100% - 4em)", marginLeft: "2em", marginRight: "2em" }} />
-            <TextField id="standard-basic" label="user name" variant="standard" style={{ marginLeft: '2em' }} />
-            <Button variant="outlined" style={{ marginLeft: '1em', marginTop: '1em' }}>Comment</Button>
+            <TextField id="standard-basic" label="username" variant="standard"
+              name="username" onChange={handleInput} style={{ marginLeft: '2em' }} />
+            <Button variant="outlined" onClick={submitComment} style={{ marginLeft: '1em', marginTop: '1em' }}>
+              Comment
+            </Button>
           </Collapse>
-              
-
         </CardContent>
       </Collapse>
+
+      {/*buttons*/}
       <CardActions disableSpacing>
-            <IconButton aria-label="add to favorites">
-              <FavoriteIcon />
-            </IconButton>
-            <IconButton
-              aria-label="comment"
-              onClick={handleCommentExpandClick}>
-              <CommentIcon />
-            </IconButton>
-            <ExpandMore
-              expand={expanded}
-              onClick={handleExpandClick}
-              aria-expanded={expanded}
-              aria-label="show more">
-              <ExpandMoreIcon />
-            </ExpandMore>
-          </CardActions>
+        <IconButton
+          aria-label="like"
+          onClick={likePost}>
+          <FavoriteIcon style={likeStyle} />
+        </IconButton>
+        <IconButton
+          aria-label="comment"
+          onClick={handleCommentExpandClick}>
+          <CommentIcon />
+        </IconButton>
+        <ExpandMore
+          expand={expanded}
+          onClick={handleExpandClick}
+          aria-expanded={expanded}
+          aria-label="show more">
+          <ExpandMoreIcon />
+        </ExpandMore>
+      </CardActions>
     </Card>
   )
 };

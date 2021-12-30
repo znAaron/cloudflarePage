@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useState, useReducer, useEffect } from 'react'
 
 import Box from '@mui/material/Box';
 import Modal from '@mui/material/Modal';
@@ -6,10 +6,9 @@ import Fab from '@mui/material/Fab';
 import EditIcon from '@mui/icons-material/Edit';
 import TextField from '@mui/material/TextField';
 
-import ReactQuill, { Mixin, Toolbar, Quill } from "react-quill";
+import ReactQuill from "react-quill";
 import 'react-quill/dist/quill.snow.css';
 
-import { useDropzone } from 'react-dropzone'
 import Button from '@mui/material/Button';
 
 const style = {
@@ -26,86 +25,85 @@ const style = {
     pb: 3,
 };
 
-const thumbsContainer = {
-    display: 'flex',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-
-};
-
-const thumb = {
-    display: 'inline-flex',
-    borderRadius: 2,
-    border: '1px solid #eaeaea',
-    marginBottom: 8,
-    marginRight: 8,
-    height: '4em',
-    width: '4em',
-    padding: 2,
-    margin: 0,
-    boxSizing: 'border-box'
-};
-
-const thumbInner = {
-    display: 'flex',
-    minWidth: 0,
-    overflow: 'hidden'
-};
-
-const img = {
-    display: 'block',
-    width: 'auto',
-    height: '100%'
-};
-
-
-function Previews(props) {
-    const [files, setFiles] = useState([]);
-    const { getRootProps, getInputProps } = useDropzone({
-        accept: 'image/*',
-        onDrop: acceptedFiles => {
-            setFiles(acceptedFiles.map(file => Object.assign(file, {
-                preview: URL.createObjectURL(file)
-            })));
+export default function NewPost({ onNewPost }) {
+    const [open, setOpen] = useState(false)
+    const [cover, setCover] = useState(false)
+    const [content, setContent] = useState('')
+    const [formInput, setFormInput] = useReducer(
+        (state, newState) => ({ ...state, ...newState }),
+        {
+            title: "",
+            username: "",
+            description: "",
+            img: ""
         }
-    });
+    )
 
-    const thumbs = files.map(file => (
-        <div style={thumb} key={file.name}>
-            <div style={thumbInner}>
-                <img
-                    src={file.preview}
-                    style={img}
-                />
-            </div>
-        </div>
-    ));
-
-    useEffect(() => () => {
-        // Make sure to revoke the data uris to avoid memory leaks
-        files.forEach(file => URL.revokeObjectURL(file.preview));
-    }, [files]);
-
-    return (
-        <section className="container">
-            <div {...getRootProps({ className: 'dropzone' })} style={{ display: 'flex' }}>
-                <input {...getInputProps()} />
-                <p style={{ fontSize: "0.5em", margin: "0" }}>cover photo (optional)</p>
-            </div>
-            <aside style={thumbsContainer}>
-                {thumbs}
-            </aside>
-        </section>
-    );
-}
-
-export default function NewPost() {
-    const [open, setOpen] = React.useState(false);
-    const handleOpen = () => {
-        setOpen(true);
+    const handleInput = evt => {
+        const name = evt.target.name;
+        const newValue = evt.target.value;
+        setFormInput({ [name]: newValue });
     };
-    const handleClose = () => {
-        setOpen(false);
+
+    const onChangeContent = (content: any, delta: any, source: any, editor: any) => {
+        setContent(editor.getHTML());
+    }
+
+    const handleOpen = () => { setOpen(true) };
+
+    const handleClose = () => { setOpen(false) };
+
+    const submitFile = async event => {
+        const files = event.target.files
+        const formData = new FormData()
+        formData.append('file', files[0])
+
+        //get the Direct Creator Upload link
+        const resp = await fetch(
+            "http://127.0.0.1:8787/posts/image",
+            { mode: 'cors', method: 'POST' }
+        )
+        const uploadURL = await resp.text()
+
+        fetch(uploadURL, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            const urlPrefix = "https://imagedelivery.net/wbDE66lhHHC90fGFwDssBQ/"
+            const fullUrl = urlPrefix + data.result.id + "/public"
+            setFormInput({img: fullUrl})
+            setCover(true)
+        })
+    }
+
+    const postData = async (data) => {
+        const response = await fetch(
+            "http://127.0.0.1:8787/posts",
+            {
+                mode: 'cors',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }
+        )
+        return response
+    }
+
+    const submitPost = async () => {
+        const post = {
+            ...formInput,
+            content: content
+        }
+
+        postData(post)
+
+        alert("Success")
+        setOpen(false)
+        onNewPost()
     };
 
     return (
@@ -121,19 +119,21 @@ export default function NewPost() {
                 aria-describedby="modal-description">
                 <Box sx={{ ...style, width: "75%", height: "76%", padding: "3%", overflow: "scroll" }}>
                     <h2 id="modal-title" style={{ marginTop: "0em", marginBottom: "0.5em" }}>New Post</h2>
-                    <TextField id="outlined-basic" label="Title" variant="outlined" style={{ marginBottom: "0.5em" }} />
+                    <TextField id="outlined-basic" name="title" label="Title" variant="outlined" onChange={handleInput}
+                        style={{ marginBottom: "0.5em" }} />
                     <br />
 
-                    <TextField id="filled-multiline-flexible" label="Description" multiline rows={3} variant="filled" style={{ marginBottom: "0.5em", width: "70%", marginRight: '0.5em'}} />
-                    <Box component="span" sx={{ p: 2, border: '1px dashed grey',  height: '6.5em', width: '8em', display: 'inline-flex', padding: '0px' }}>
-                        <Button><Previews /></Button>
+                    <TextField id="filled-multiline-flexible" name="description" label="Description" multiline rows={3} variant="filled" onChange={handleInput}
+                        style={{ marginBottom: "0.5em", width: "70%", marginRight: '0.5em' }} />
+                    <Box component="span" sx={{ p: 2, border: '1px dashed grey', height: '6.5em', width: '8em', display: 'inline-flex', padding: '0px' }}>
+                    <input type="file" id="myFile" onChange={submitFile} name="file" />
                     </Box>
 
                     <h4 style={{ marginTop: "0.5em", marginBottom: "0.5em" }}>Rich Text Content(Optional)</h4>
-                    <ReactQuill theme="snow" style={{ height: "35%" }} />
-                    <div style={{ marginTop: "4em"}}>
-                        <TextField id="standard-basic" label="user name" variant="standard"/>
-                        <Button variant="outlined"  style={{ marginLeft:'1em', marginTop: '1em' }}>Post</Button>
+                    <ReactQuill theme="snow" style={{ height: "35%" }} value={content} onChange={onChangeContent} />
+                    <div style={{ marginTop: "4em" }}>
+                        <TextField id="standard-basic" name="username" label="username" variant="standard" onChange={handleInput} />
+                        <Button variant="outlined" style={{ marginLeft: '1em', marginTop: '1em' }} onClick={submitPost}>Post</Button>
                     </div>
 
                     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
