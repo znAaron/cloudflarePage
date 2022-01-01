@@ -21,6 +21,7 @@ const Posts = () => {
         }
         return b.time - a.time
       })
+      console.log("debug: ", postsResp)
       setPosts(postsResp)
     };
 
