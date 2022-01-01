@@ -1,4 +1,4 @@
-import React, { useState, useReducer, useEffect } from 'react'
+import React, { useState, useReducer} from 'react'
 
 import Box from '@mui/material/Box';
 import Modal from '@mui/material/Modal';
@@ -10,6 +10,8 @@ import ReactQuill from "react-quill";
 import 'react-quill/dist/quill.snow.css';
 
 import Button from '@mui/material/Button';
+
+const serverUrl = "https://socialmedia.znaaron.com"
 
 const style = {
     position: 'absolute',
@@ -27,7 +29,6 @@ const style = {
 
 export default function NewPost({ onNewPost }) {
     const [open, setOpen] = useState(false)
-    const [cover, setCover] = useState(false)
     const [content, setContent] = useState('')
     const [formInput, setFormInput] = useReducer(
         (state, newState) => ({ ...state, ...newState }),
@@ -38,6 +39,7 @@ export default function NewPost({ onNewPost }) {
             img: ""
         }
     )
+    let uploading = false
 
     const handleInput = evt => {
         const name = evt.target.name;
@@ -54,14 +56,15 @@ export default function NewPost({ onNewPost }) {
     const handleClose = () => { setOpen(false) };
 
     const submitFile = async event => {
+        uploading = true
         const files = event.target.files
         const formData = new FormData()
         formData.append('file', files[0])
 
         //get the Direct Creator Upload link
         const resp = await fetch(
-            "https://socialmedia.znaaron.com/posts/image",
-            { mode: 'cors', method: 'POST' }
+            serverUrl + "/posts/image",
+            { method: 'POST' }
         )
         const uploadURL = await resp.text()
 
@@ -74,36 +77,46 @@ export default function NewPost({ onNewPost }) {
             const urlPrefix = "https://imagedelivery.net/wbDE66lhHHC90fGFwDssBQ/"
             const fullUrl = urlPrefix + data.result.id + "/public"
             setFormInput({img: fullUrl})
-            setCover(true)
+            uploading = false
         })
     }
 
     const postData = async (data) => {
         const response = await fetch(
-            "https://socialmedia.znaaron.com/posts",
+            serverUrl +"/posts",
             {
-                mode: 'cors',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(data)
+                body: JSON.stringify(data),
+                credentials: "include"
             }
         )
         return response
     }
 
     const submitPost = async () => {
+        if (uploading) {
+            alert("pictuire is still uploading, please wait and try again")
+            return
+        }
+
         const post = {
             ...formInput,
             content: content
         }
 
-        postData(post)
+        const resp = await postData(post)
+        const message = await resp.text()
 
-        alert("Success")
-        setOpen(false)
-        onNewPost()
+        if (resp.status !== 200) {
+            alert(message)
+        } else {
+            alert(message)
+            setOpen(false)
+            onNewPost()
+        }        
     };
 
     return (

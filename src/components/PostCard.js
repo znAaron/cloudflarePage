@@ -28,7 +28,12 @@ import ReactQuill from "react-quill";
 import 'react-quill/dist/quill.bubble.css'
 import Skeleton from '@mui/material/Skeleton';
 
-const PostCard = ({ post }) => {
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+
+const serverUrl = "https://socialmedia.znaaron.com"
+
+const PostCard = ({ post, onDeletion }) => {
   const id = post.id
   const [like, setLike] = useState(0);
   const [likeStyle, setLikeStyle] = useState({});
@@ -36,6 +41,8 @@ const PostCard = ({ post }) => {
   const [statusChange, setStatusChange] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [commentExpanded, setCommentExpanded] = useState(false);
+  const [anchorEl, setAnchorEl] = React.useState(null);
+  const open = Boolean(anchorEl);
   const [formInput, setFormInput] = useReducer(
     (state, newState) => ({ ...state, ...newState }),
     {
@@ -44,14 +51,11 @@ const PostCard = ({ post }) => {
     }
   );
 
-  console.log(typeof(id))
-
   const Cover = () => {
     if (post.img === "") {
       return ""
     }
     else {
-      console.log(post.image)
       return (
         <CardMedia
           component="img"
@@ -65,18 +69,14 @@ const PostCard = ({ post }) => {
     //only fetch when it is visible to reduce the load on the backend
     if (expanded && !id.includes("loading")) {
       const getPosts = async () => {
-        const likeURL = "https://socialmedia.znaaron.com/posts/like?id=" + id;
-        const commentURL = "https://socialmedia.znaaron.com/posts/comments?id=" + id;
+        const likeURL = serverUrl + "/posts/like?id=" + id;
+        const commentURL = serverUrl + "/posts/comments?id=" + id;
 
-        const likeResp = await fetch(
-          likeURL, { mode: 'cors' }
-        );
+        const likeResp = await fetch(likeURL);
         const likeNum = await likeResp.text();
         setLike(parseInt(likeNum));
 
-        const commentResp = await fetch(
-          commentURL, { mode: 'cors' }
-        );
+        const commentResp = await fetch(commentURL);
         let postComments = await commentResp.json();
         postComments.sort(function (a, b) {
           return b.time - a.time;
@@ -86,7 +86,7 @@ const PostCard = ({ post }) => {
 
       getPosts();
     }
-  }, [statusChange, expanded]);
+  }, [statusChange, expanded, id]);
 
   if (id.includes("loading")) {
     return (
@@ -115,9 +115,8 @@ const PostCard = ({ post }) => {
 
   const postComment = async (data) => {
     const response = await fetch(
-      "https://socialmedia.znaaron.com/posts/comments",
+      serverUrl + "/posts/comments",
       {
-        mode: 'cors',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -159,8 +158,8 @@ const PostCard = ({ post }) => {
   };
 
   const likePost = async () => {
-    const likeURL = "https://socialmedia.znaaron.com/posts/like?id=" + id
-    fetch(likeURL, { mode: 'cors', method: 'POST' })
+    const likeURL = serverUrl + "/posts/like?id=" + id
+    fetch(likeURL, { method: 'POST' })
     setLikeStyle({ fill: "red" })
     setLike(like + 1)
     /* not fecthing because it can cause inconsistent view
@@ -198,6 +197,16 @@ const PostCard = ({ post }) => {
     setFormInput({ [name]: newValue });
   };
 
+  const handleSettingClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+  const handleDelete = () => {
+    const deleteURL = serverUrl + "/posts?id=" + id
+    fetch( deleteURL, { method: 'DELETE' })
+    onDeletion(id)
+    setAnchorEl(null);
+  };
+
   const date = new Date(post.time);
   const time = date.getDate() +
     "/" + (date.getMonth() + 1) +
@@ -215,7 +224,7 @@ const PostCard = ({ post }) => {
           </Avatar>
         }
         action={
-          <IconButton aria-label="settings">
+          <IconButton aria-label="settings" onClick={handleSettingClick}>
             <MoreVertIcon />
           </IconButton>
         }
@@ -223,6 +232,17 @@ const PostCard = ({ post }) => {
         subheader={post.username}
       />
       <Cover />
+      <Menu
+        id="basic-menu"
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleDelete}
+        MenuListProps={{
+          'aria-labelledby': 'basic-button',
+        }}
+      >
+        <MenuItem onClick={handleDelete}>Delete</MenuItem>
+      </Menu>
       <CardContent>
         <Typography variant="body2" color="text.secondary">
           {post.description}
