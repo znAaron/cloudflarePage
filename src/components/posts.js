@@ -28,6 +28,10 @@ const Posts = () => {
     getPosts()
   }, [newPost])
 
+  useEffect(() => {
+     document.title = "Posts";  
+   }, [])
+
   const handleNewPosts = () => {
     setNewPost(!newPost)
   }
